@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const InputForm = ({ onGenerate }) => {
+const InputForm = ({ onGenerate, error }) => {
   const [formData, setFormData] = useState({
     topic: '',
     presentationType: 'business',
@@ -77,6 +77,11 @@ const InputForm = ({ onGenerate }) => {
       <p className="form-subtitle">
         Fill in the details below to generate a structured, professional presentation
       </p>
+      {error && (
+        <div className="alert alert-error" role="alert">
+          {error}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import './App.css'
 
 // Components
@@ -10,8 +10,53 @@ import ExportPanel from './ExportPanel'
 
 const API_URL = 'http://localhost:8000'
 
+const heroFeatures = [
+  {
+    title: 'Generate',
+    description: 'Start with an idea, paste in an outline, or import existing content.',
+    icon: '⚡'
+  },
+  {
+    title: 'Shape',
+    description: 'Edit with AI, add smart layouts, and polish your message instantly.',
+    icon: '🧠'
+  },
+  {
+    title: 'Share',
+    description: 'Export to PPT, PDF, or Google Slides and share with confidence.',
+    icon: '🚀'
+  }
+]
+
+const productCards = [
+  { title: 'Presentations', subtitle: 'Turn any idea into a polished slide deck. Export to PPT, PDF, and more.' },
+  { title: 'Social Media', subtitle: 'Generate ready-to-post visuals and captions for your brand.' },
+  { title: 'Documents', subtitle: 'Create structured, visual documents from one prompt.' },
+  { title: 'Websites', subtitle: 'Build shareable website landing pages with AI-generated content.' },
+  { title: 'API', subtitle: 'Automate creation, integrate with workflows, and scale content.' },
+  { title: 'Graphics', subtitle: 'Design branded visuals, illustrations, and data-rich graphics.' }
+]
+
+const testimonials = [
+  {
+    quote: 'Beyond saving me hours of labor, I now channel my time into more meaningful work.',
+    name: 'Christina Salazar',
+    role: 'English Language Development Teacher'
+  },
+  {
+    quote: 'Gamma has made me something of a campus hero — it feels effortless to create.',
+    name: 'Jordan Crawford',
+    role: 'Founder'
+  },
+  {
+    quote: 'This product rocks! I no longer use Google Slides — it feels prehistoric now.',
+    name: 'Denise Penn',
+    role: 'Social Media Content Creator'
+  }
+]
+
 function App() {
-  const [currentStep, setCurrentStep] = useState('input') // 'input', 'editor', 'export'
+  const [currentStep, setCurrentStep] = useState('input')
   const [presentationData, setPresentationData] = useState(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
@@ -66,8 +111,6 @@ function App() {
       }
 
       const newSlideData = await response.json()
-
-      // Update only the current slide
       const updatedSlides = [...presentationData.slides]
       updatedSlides[currentSlideIndex] = newSlideData
       setPresentationData({ ...presentationData, slides: updatedSlides })
@@ -126,78 +169,175 @@ function App() {
     setError('')
   }
 
-  if (currentStep === 'input') {
-    return (
-      <div className="app">
-        <InputForm
-          onGenerate={handleGeneratePresentation}
-          isLoading={isLoading}
-          error={error}
-        />
-      </div>
-    )
-  }
-
-  if (currentStep === 'export') {
-    return (
-      <div className="app">
-        <ExportPanel
-          presentationData={presentationData}
-          onExport={handleExport}
-          onBack={() => setCurrentStep('editor')}
-          onNew={handleNewPresentation}
-          isLoading={isLoading}
-          error={error}
-        />
-      </div>
-    )
+  const scrollToForm = () => {
+    const formSection = document.getElementById('form-section')
+    formSection?.scrollIntoView({ behavior: 'smooth' })
   }
 
   return (
-    <div className="app">
-      <div className="app-header">
-        <h1>Structured AI Presentation Builder</h1>
-        <div className="header-actions">
-          <button
-            className="btn-secondary"
-            onClick={handleNewPresentation}
-          >
-            New Presentation
-          </button>
-          <button
-            className="btn-primary"
-            onClick={() => setCurrentStep('export')}
-          >
-            Export
-          </button>
+    <div className="app-shell">
+      <div className="site-header">
+        <div className="brand-logo">
+          <div className="brand-mark">AI</div>
+          <div>
+            <div className="brand-name">Gamma Deck</div>
+            <div className="brand-subtitle">AI Presentation Builder</div>
+          </div>
+        </div>
+        <div className="nav-actions">
+          {currentStep === 'editor' ? (
+            <button className="btn-secondary" onClick={handleNewPresentation}>
+              New Presentation
+            </button>
+          ) : (
+            <button className="btn-secondary" onClick={scrollToForm}>
+              Create Presentation
+            </button>
+          )}
+          {currentStep === 'editor' && (
+            <button className="btn-primary" onClick={() => setCurrentStep('export')}>
+              Export
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="app-content">
-        <SlideSidebar
-          slides={presentationData?.slides || []}
-          currentSlideIndex={currentSlideIndex}
-          onSlideSelect={setCurrentSlideIndex}
-        />
+      {currentStep === 'input' && (
+        <main className="hero-layout">
+          <section className="hero-copy">
+            <span className="eyebrow">AI presentation builder</span>
+            <h1>Effortless AI design for presentations, websites, and more</h1>
+            <p>
+              Your ideas are brilliant. The universe deserves to see them.
+              A captivating pitch deck? Easy. A stunning website? Done.
+              Make anything you can imagine almost as quickly as you can think it up.
+            </p>
 
-        <SlideEditor
-          slide={presentationData?.slides[currentSlideIndex]}
-          onUpdate={handleUpdateSlide}
-          isLoading={isLoading}
-        />
+            <div className="hero-cta">
+              <button className="btn-primary" onClick={scrollToForm}>
+                Start for free
+              </button>
+              <button className="btn-secondary" onClick={() => setError('Video preview is not available in this app yet')}>
+                Watch demo
+              </button>
+            </div>
 
-        <AIControlPanel
-          onRegenerateTitle={() => handleRegenerateSection('title')}
-          onRegenerateBullets={() => handleRegenerateSection('bullets')}
-          onRegenerateSlide={() => handleRegenerateSection('slide')}
-          isLoading={isLoading}
-        />
-      </div>
+            <div className="hero-pill-grid">
+              {heroFeatures.map((feature) => (
+                <div key={feature.title} className="hero-pill">
+                  <span>{feature.icon}</span>
+                  <div>
+                    <strong>{feature.title}</strong>
+                    <p>{feature.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      {error && (
-        <div className="error-banner">
-          <span>{error}</span>
-          <button onClick={() => setError('')}>×</button>
+          <section className="hero-panel" id="form-section">
+            <div className="hero-panel-card">
+              <div className="hero-panel-label">AI Presentation Builder</div>
+              <InputForm
+                onGenerate={handleGeneratePresentation}
+                isLoading={isLoading}
+                error={error}
+              />
+            </div>
+          </section>
+        </main>
+      )}
+
+      {currentStep === 'input' && (
+        <section className="feature-grid">
+          {productCards.map((product) => (
+            <div key={product.title} className="product-card">
+              <div className="product-title">{product.title}</div>
+              <p>{product.subtitle}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {currentStep === 'input' && (
+        <section className="testimonial-section">
+          <div className="testimonial-header">
+            <h2>Join 50+ million users changing how the world communicates</h2>
+          </div>
+          <div className="testimonial-grid">
+            {testimonials.map((testimonial) => (
+              <div key={testimonial.name} className="testimonial-card">
+                <p className="testimonial-quote">“{testimonial.quote}”</p>
+                <p className="testimonial-author">
+                  <span>{testimonial.name}</span>
+                  <span>{testimonial.role}</span>
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {currentStep === 'editor' && (
+        <div className="app">
+          <div className="app-header">
+            <h1>Structured AI Presentation Builder</h1>
+            <div className="header-actions">
+              <button
+                className="btn-secondary"
+                onClick={handleNewPresentation}
+              >
+                New Presentation
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => setCurrentStep('export')}
+              >
+                Export
+              </button>
+            </div>
+          </div>
+
+          <div className="app-content">
+            <SlideSidebar
+              slides={presentationData?.slides || []}
+              currentSlideIndex={currentSlideIndex}
+              onSlideSelect={setCurrentSlideIndex}
+            />
+
+            <SlideEditor
+              slide={presentationData?.slides[currentSlideIndex]}
+              onUpdate={handleUpdateSlide}
+              isLoading={isLoading}
+            />
+
+            <AIControlPanel
+              onRegenerateTitle={() => handleRegenerateSection('title')}
+              onRegenerateBullets={() => handleRegenerateSection('bullets')}
+              onRegenerateSlide={() => handleRegenerateSection('slide')}
+              isLoading={isLoading}
+            />
+          </div>
+
+          {error && (
+            <div className="error-banner">
+              <span>{error}</span>
+              <button onClick={() => setError('')}>×</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentStep === 'export' && (
+        <div className="app">
+          <ExportPanel
+            presentationData={presentationData}
+            onExport={handleExport}
+            onBack={() => setCurrentStep('editor')}
+            onNew={handleNewPresentation}
+            isLoading={isLoading}
+            error={error}
+          />
         </div>
       )}
     </div>
