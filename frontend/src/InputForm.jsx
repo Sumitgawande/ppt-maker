@@ -54,8 +54,12 @@ const InputForm = ({ onGenerate }) => {
       const filteredKeyPoints = formData.keyPoints.filter(point => point.trim() !== '');
 
       await onGenerate({
-        ...formData,
-        keyPoints: filteredKeyPoints
+        topic: formData.topic,
+        presentation_type: formData.presentationType,
+        audience: formData.audience,
+        goal: formData.goal,
+        key_points: filteredKeyPoints,
+        theme: formData.theme,
       });
     } catch (error) {
       console.error('Error generating presentation:', error);
