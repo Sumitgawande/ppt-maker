@@ -1,240 +1,173 @@
+# main.py - FastAPI Backend for PPT Maker
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from pptx import Presentation
-from pptx.util import Inches, Pt
-from pptx.enum.text import PP_ALIGN
-from pptx.dml.color import RGBColor
-import re
-from io import BytesIO
 from typing import List, Optional
+import openai
+import os
+from dotenv import load_dotenv
 
-app = FastAPI(title="Structured AI Presentation Builder API")
+load_dotenv()
 
+app = FastAPI(title="PPT Maker API")
+
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Color themes
-COLOR_THEMES = {
-    "blue": {"primary": RGBColor(37, 99, 235), "secondary": RGBColor(191, 219, 254), "accent": RGBColor(30, 41, 59)},
-    "green": {"primary": RGBColor(34, 197, 94), "secondary": RGBColor(187, 247, 208), "accent": RGBColor(15, 23, 42)},
-    "purple": {"primary": RGBColor(147, 51, 234), "secondary": RGBColor(233, 213, 255), "accent": RGBColor(30, 41, 59)},
-    "orange": {"primary": RGBColor(249, 115, 22), "secondary": RGBColor(254, 215, 170), "accent": RGBColor(30, 41, 59)},
-}
+# OpenAI API configuration (optional - for AI generation)
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-class StructuredInput(BaseModel):
-    topic: str
-    presentation_type: str  # pitch_deck, report, sales, training
-    audience: str
-    goal: str
-    key_points: List[str]
-    theme: str = "blue"
-
-class SlideContent(BaseModel):
+# Models
+class Slide(BaseModel):
     title: str
-    bullets: List[str]
-    notes: Optional[str] = ""
+    content: str
+    layout: str = "content"
+    theme: str = "gradient-blue"
 
-class PresentationData(BaseModel):
-    slides: List[SlideContent]
-    theme: str
+class GenerateRequest(BaseModel):
+    prompt: str
+    num_slides: Optional[int] = 5
 
-class RegenerateRequest(BaseModel):
-    slide_index: int
-    regenerate_type: str  # "title", "bullets", "slide"
-    current_title: Optional[str] = None
-    current_bullets: Optional[List[str]] = None
+class GenerateResponse(BaseModel):
+    slides: List[Slide]
 
-def generate_slide_content(topic: str, presentation_type: str, audience: str, goal: str, key_points: List[str], slide_index: int) -> SlideContent:
-    """Generate structured slide content based on input parameters."""
-    slide_templates = {
-        0: {
-            "title": f"Introduction to {topic}",
-            "bullets": [
-                f"Overview of {topic} and its importance",
-                f"Target audience: {audience}",
-                f"Presentation goal: {goal}",
-                f"Key focus areas: {', '.join(key_points[:3])}"
-            ]
+# AI Generation endpoint
+@app.post("/api/generate", response_model=GenerateResponse)
+async def generate_presentation(request: GenerateRequest):
+    """
+    Generate presentation slides using AI (OpenAI GPT)
+    Falls back to template-based generation if API key not configured
+    """
+    
+    # Check if OpenAI API key is available
+    if openai.api_key:
+        try:
+            # Use OpenAI to generate slides
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": """You are a presentation expert. Generate presentation slides in JSON format.
+                        Each slide should have: title (string), content (string with bullet points using \n), layout (title/content/image).
+                        Return ONLY a JSON array of slides, no other text."""
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Create {request.num_slides} slides about: {request.prompt}"
+                    }
+                ],
+                temperature=0.7
+            )
+            
+            # Parse AI response
+            import json
+            slides_data = json.loads(response.choices[0].message.content)
+            slides = [Slide(**slide) for slide in slides_data]
+            
+        except Exception as e:
+            print(f"OpenAI Error: {e}")
+            # Fallback to template generation
+            slides = generate_template_slides(request.prompt, request.num_slides)
+    else:
+        # Use template-based generation
+        slides = generate_template_slides(request.prompt, request.num_slides)
+    
+    return GenerateResponse(slides=slides)
+
+def generate_template_slides(topic: str, num_slides: int) -> List[Slide]:
+    """
+    Generate slides using predefined templates
+    """
+    slides = []
+    
+    # Title slide
+    slides.append(Slide(
+        title=topic.title(),
+        content="An AI-generated presentation",
+        layout="title"
+    ))
+    
+    # Content slides
+    templates = [
+        {
+            "title": "Introduction",
+            "content": f"• Overview of {topic}\n• Key concepts\n• Importance and relevance\n• What we'll cover"
         },
-        1: {
-            "title": f"Problem Statement",
-            "bullets": [
-                f"Current challenges in {topic}",
-                f"Impact on {audience}",
-                f"Market gaps and opportunities",
-                f"Business case for addressing these issues"
-            ]
+        {
+            "title": "Key Points",
+            "content": "• Main idea 1\n• Main idea 2\n• Main idea 3\n• Supporting details"
         },
-        2: {
-            "title": f"Solution Overview",
-            "bullets": [
-                f"Our approach to {topic}",
-                f"Key benefits for {audience}",
-                f"How we achieve {goal}",
-                f"Unique value proposition"
-            ]
+        {
+            "title": "Analysis",
+            "content": "• Current state\n• Challenges\n• Opportunities\n• Best practices"
         },
-        3: {
-            "title": f"Key Features",
-            "bullets": key_points[:4] if len(key_points) >= 4 else key_points + ["Additional feature 1", "Additional feature 2"]
+        {
+            "title": "Benefits",
+            "content": "• Advantage 1\n• Advantage 2\n• Advantage 3\n• Long-term value"
         },
-        4: {
-            "title": f"Implementation Strategy",
-            "bullets": [
-                f"Step-by-step approach to {topic}",
-                f"Timeline and milestones",
-                f"Resource requirements",
-                f"Success metrics"
-            ]
+        {
+            "title": "Implementation",
+            "content": "• Step 1: Planning\n• Step 2: Execution\n• Step 3: Monitoring\n• Step 4: Optimization"
         },
-        5: {
-            "title": f"Results & Benefits",
-            "bullets": [
-                f"Expected outcomes for {audience}",
-                f"ROI and measurable impact",
-                f"Competitive advantages",
-                f"Long-term value"
-            ]
+        {
+            "title": "Case Studies",
+            "content": "• Example 1\n• Example 2\n• Success metrics\n• Lessons learned"
         },
-        6: {
-            "title": f"Next Steps",
-            "bullets": [
-                f"Action items and timeline",
-                f"Contact information",
-                f"Questions and discussion",
-                f"Thank you for your attention"
-            ]
+        {
+            "title": "Next Steps",
+            "content": "• Action items\n• Timeline\n• Resources needed\n• Expected outcomes"
+        },
+        {
+            "title": "Conclusion",
+            "content": f"• Summary of {topic}\n• Key takeaways\n• Call to action\n• Thank you"
+        }
+    ]
+    
+    # Add slides based on num_slides
+    for i in range(min(num_slides - 1, len(templates))):
+        slides.append(Slide(**templates[i], layout="content"))
+    
+    return slides
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "PPT Maker API is running"}
+
+@app.get("/")
+async def root():
+    return {
+        "message": "PPT Maker API",
+        "version": "1.0.0",
+        "endpoints": {
+            "/api/generate": "POST - Generate presentation slides",
+            "/health": "GET - Health check"
         }
     }
 
-    template = slide_templates.get(slide_index, slide_templates[0])
-    return SlideContent(**template)
 
-def regenerate_slide_section(slide_content: SlideContent, regenerate_type: str, topic: str, presentation_type: str) -> SlideContent:
-    """Regenerate specific parts of a slide."""
-    if regenerate_type == "title":
-        # Generate new title based on bullets
-        new_title = f"Enhanced: {slide_content.bullets[0][:50]}..." if slide_content.bullets else f"Slide about {topic}"
-        return SlideContent(title=new_title, bullets=slide_content.bullets, notes=slide_content.notes)
-    elif regenerate_type == "bullets":
-        # Generate new bullets keeping the title
-        new_bullets = [
-            f"Improved point 1: {slide_content.bullets[0] if slide_content.bullets else 'Key insight'}",
-            f"Enhanced point 2: {slide_content.bullets[1] if len(slide_content.bullets) > 1 else 'Additional detail'}",
-            f"Advanced point 3: {slide_content.bullets[2] if len(slide_content.bullets) > 2 else 'Further explanation'}",
-            f"Strategic point 4: {slide_content.bullets[3] if len(slide_content.bullets) > 3 else 'Conclusion'}"
+# Alternative: Using Anthropic Claude instead of OpenAI
+"""
+from anthropic import Anthropic
+
+client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+def generate_with_claude(prompt: str, num_slides: int):
+    message = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=2000,
+        messages=[
+            {
+                "role": "user",
+                "content": f"Create {num_slides} presentation slides about: {prompt}. Return JSON array with title, content, layout fields."
+            }
         ]
-        return SlideContent(title=slide_content.title, bullets=new_bullets, notes=slide_content.notes)
-    elif regenerate_type == "slide":
-        # Regenerate entire slide
-        return generate_slide_content(topic, presentation_type, "", "", [], 0)  # Simplified
-    return slide_content
-
-@app.post("/generate-presentation")
-def generate_presentation(input_data: StructuredInput):
-    if not input_data.topic.strip():
-        raise HTTPException(status_code=400, detail="Topic is required.")
-
-    slides = []
-    for i in range(7):  # Generate 7 slides
-        slide_content = generate_slide_content(
-            input_data.topic,
-            input_data.presentation_type,
-            input_data.audience,
-            input_data.goal,
-            input_data.key_points,
-            i
-        )
-        slides.append(slide_content)
-
-    return {"slides": slides, "theme": input_data.theme}
-
-@app.post("/regenerate-section")
-def regenerate_section(request: RegenerateRequest):
-    # Create a SlideContent object from the current slide data
-    current_slide = SlideContent(
-        title=request.current_title or "Sample Title",
-        bullets=request.current_bullets or ["Bullet 1", "Bullet 2"],
-        notes=""
     )
-
-    # Regenerate the specified section
-    new_slide = regenerate_slide_section(current_slide, request.regenerate_type, "Presentation", "business")
-    return new_slide
-
-@app.post("/export-ppt")
-def export_ppt(presentation_data: PresentationData):
-    theme = COLOR_THEMES.get(presentation_data.theme, COLOR_THEMES["blue"])
-    presentation = Presentation()
-    presentation.slide_width = Inches(10)
-    presentation.slide_height = Inches(7.5)
-
-    # Title slide
-    title_slide_layout = presentation.slide_layouts[6]
-    title_slide = presentation.slides.add_slide(title_slide_layout)
-    background = title_slide.background
-    fill = background.fill
-    fill.solid()
-    fill.fore_color.rgb = theme["primary"]
-
-    title_box = title_slide.shapes.add_textbox(Inches(0.5), Inches(2.5), Inches(9), Inches(1.5))
-    title_frame = title_box.text_frame
-    title_frame.word_wrap = True
-    title_para = title_frame.paragraphs[0]
-    title_para.text = presentation_data.slides[0].title if presentation_data.slides else "AI Generated Presentation"
-    title_para.font.size = Pt(54)
-    title_para.font.bold = True
-    title_para.font.color.rgb = RGBColor(255, 255, 255)
-    title_para.alignment = PP_ALIGN.CENTER
-
-    # Content slides
-    for slide_data in presentation_data.slides:
-        slide_layout = presentation.slide_layouts[6]
-        slide = presentation.slides.add_slide(slide_layout)
-
-        # Header bar
-        header_shape = slide.shapes.add_shape(1, Inches(0), Inches(0), Inches(10), Inches(1))
-        header_shape.fill.solid()
-        header_shape.fill.fore_color.rgb = theme["primary"]
-        header_shape.line.color.rgb = theme["primary"]
-
-        # Slide title
-        title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.15), Inches(9), Inches(0.7))
-        title_frame = title_box.text_frame
-        title_frame.word_wrap = True
-        title_para = title_frame.paragraphs[0]
-        title_para.text = slide_data.title
-        title_para.font.size = Pt(32)
-        title_para.font.bold = True
-        title_para.font.color.rgb = RGBColor(255, 255, 255)
-
-        # Content area
-        content_box = slide.shapes.add_textbox(Inches(0.8), Inches(1.5), Inches(8.4), Inches(5.5))
-        text_frame = content_box.text_frame
-        text_frame.word_wrap = True
-
-        for bullet in slide_data.bullets:
-            para = text_frame.add_paragraph() if text_frame.paragraphs else text_frame.paragraphs[0]
-            para.text = bullet
-            para.level = 0
-            para.font.size = Pt(20)
-            para.font.color.rgb = theme["accent"]
-            para.space_before = Pt(12)
-            para.space_after = Pt(12)
-
-    output = BytesIO()
-    presentation.save(output)
-    output.seek(0)
-    filename = re.sub(r"[^A-Za-z0-9_-]", "_", presentation_data.slides[0].title if presentation_data.slides else "presentation")
-    return StreamingResponse(
-        output,
-        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        headers={"Content-Disposition": f"attachment; filename=\"{filename}.pptx\""},
-    )
+    return message.content[0].text
+"""

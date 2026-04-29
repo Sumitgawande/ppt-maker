@@ -7,6 +7,7 @@ import SlideSidebar from './SlideSidebar'
 import SlideEditor from './SlideEditor'
 import AIControlPanel from './AIControlPanel'
 import ExportPanel from './ExportPanel'
+import PPTMaker from './pptmaker'
 
 const API_URL = 'http://localhost:8000'
 
@@ -175,171 +176,12 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <div className="site-header">
-        <div className="brand-logo">
-          <div className="brand-mark">AI</div>
-          <div>
-            <div className="brand-name">Gamma Deck</div>
-            <div className="brand-subtitle">AI Presentation Builder</div>
-          </div>
-        </div>
-        <div className="nav-actions">
-          {currentStep === 'editor' ? (
-            <button className="btn-secondary" onClick={handleNewPresentation}>
-              New Presentation
-            </button>
-          ) : (
-            <button className="btn-secondary" onClick={scrollToForm}>
-              Create Presentation
-            </button>
-          )}
-          {currentStep === 'editor' && (
-            <button className="btn-primary" onClick={() => setCurrentStep('export')}>
-              Export
-            </button>
-          )}
-        </div>
-      </div>
+    <div>
+      <PPTMaker/>
+      
 
-      {currentStep === 'input' && (
-        <main className="hero-layout">
-          <section className="hero-copy">
-            <span className="eyebrow">AI presentation builder</span>
-            <h1>Effortless AI design for presentations, websites, and more</h1>
-            <p>
-              Your ideas are brilliant. The universe deserves to see them.
-              A captivating pitch deck? Easy. A stunning website? Done.
-              Make anything you can imagine almost as quickly as you can think it up.
-            </p>
 
-            <div className="hero-cta">
-              <button className="btn-primary" onClick={scrollToForm}>
-                Start for free
-              </button>
-              <button className="btn-secondary" onClick={() => setError('Video preview is not available in this app yet')}>
-                Watch demo
-              </button>
-            </div>
-
-            <div className="hero-pill-grid">
-              {heroFeatures.map((feature) => (
-                <div key={feature.title} className="hero-pill">
-                  <span>{feature.icon}</span>
-                  <div>
-                    <strong>{feature.title}</strong>
-                    <p>{feature.description}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="hero-panel" id="form-section">
-            <div className="hero-panel-card">
-              <div className="hero-panel-label">AI Presentation Builder</div>
-              <InputForm
-                onGenerate={handleGeneratePresentation}
-                isLoading={isLoading}
-                error={error}
-              />
-            </div>
-          </section>
-        </main>
-      )}
-
-      {currentStep === 'input' && (
-        <section className="feature-grid">
-          {productCards.map((product) => (
-            <div key={product.title} className="product-card">
-              <div className="product-title">{product.title}</div>
-              <p>{product.subtitle}</p>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {currentStep === 'input' && (
-        <section className="testimonial-section">
-          <div className="testimonial-header">
-            <h2>Join 50+ million users changing how the world communicates</h2>
-          </div>
-          <div className="testimonial-grid">
-            {testimonials.map((testimonial) => (
-              <div key={testimonial.name} className="testimonial-card">
-                <p className="testimonial-quote">“{testimonial.quote}”</p>
-                <p className="testimonial-author">
-                  <span>{testimonial.name}</span>
-                  <span>{testimonial.role}</span>
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {currentStep === 'editor' && (
-        <div className="app">
-          <div className="app-header">
-            <h1>Structured AI Presentation Builder</h1>
-            <div className="header-actions">
-              <button
-                className="btn-secondary"
-                onClick={handleNewPresentation}
-              >
-                New Presentation
-              </button>
-              <button
-                className="btn-primary"
-                onClick={() => setCurrentStep('export')}
-              >
-                Export
-              </button>
-            </div>
-          </div>
-
-          <div className="app-content">
-            <SlideSidebar
-              slides={presentationData?.slides || []}
-              currentSlideIndex={currentSlideIndex}
-              onSlideSelect={setCurrentSlideIndex}
-            />
-
-            <SlideEditor
-              slide={presentationData?.slides[currentSlideIndex]}
-              onUpdate={handleUpdateSlide}
-              isLoading={isLoading}
-            />
-
-            <AIControlPanel
-              onRegenerateTitle={() => handleRegenerateSection('title')}
-              onRegenerateBullets={() => handleRegenerateSection('bullets')}
-              onRegenerateSlide={() => handleRegenerateSection('slide')}
-              isLoading={isLoading}
-            />
-          </div>
-
-          {error && (
-            <div className="error-banner">
-              <span>{error}</span>
-              <button onClick={() => setError('')}>×</button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {currentStep === 'export' && (
-        <div className="app">
-          <ExportPanel
-            presentationData={presentationData}
-            onExport={handleExport}
-            onBack={() => setCurrentStep('editor')}
-            onNew={handleNewPresentation}
-            isLoading={isLoading}
-            error={error}
-          />
-        </div>
-      )}
+     
     </div>
   )
 }
