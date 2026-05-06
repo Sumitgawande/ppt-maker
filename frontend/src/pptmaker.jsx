@@ -21,6 +21,8 @@ export default function PPTMaker() {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [showAIPanel, setShowAIPanel] = useState(true);
   const [editMode, setEditMode] = useState(false);
+  const [error, setError] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
 
   const themes = [
     { id: 'gradient-blue', name: 'Ocean Blue', colors: 'from-blue-500 to-purple-600', textColor: 'text-white' },
@@ -45,6 +47,8 @@ export default function PPTMaker() {
     
     setIsGenerating(true);
     setShowAIPanel(false);
+    setError('');
+    setStatusMessage('');
     
     try {
       const response = await fetch('http://localhost:5000/api/generate', {
@@ -55,6 +59,16 @@ export default function PPTMaker() {
       
       const data = await response.json();
       
+      if (!response.ok) {
+        const message = data?.detail || data?.info || 'Failed to generate presentation.';
+        setError(message);
+        return;
+      }
+
+      if (data.info) {
+        setStatusMessage(data.info);
+      }
+
       if (data.slides) {
         setSlides(data.slides.map((slide, index) => ({
           id: index + 1,
@@ -64,9 +78,12 @@ export default function PPTMaker() {
           alignment: 'left'
         })));
         setCurrentSlide(0);
+      } else {
+        setError('No slides were returned from the backend.');
       }
     } catch (error) {
       console.error('Error generating presentation:', error);
+      setError('Unable to generate presentation. Please try again.');
       generateDemoSlides();
     } finally {
       setIsGenerating(false);
@@ -356,6 +373,17 @@ export default function PPTMaker() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {statusMessage && (
+        <div className="max-w-4xl mx-auto my-4 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+          {statusMessage}
+        </div>
+      )}
+      {error && (
+        <div className="max-w-4xl mx-auto my-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          {error}
         </div>
       )}
 

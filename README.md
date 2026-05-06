@@ -16,6 +16,7 @@ cd backend
 python -m venv venv
 venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+$env:OLLAMA_MODEL="llama3.2:latest"  # or your local Ollama model name
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
